@@ -25,45 +25,88 @@ int counter = 0;
 int laserWasCut = 0;
 int distanceFlag = 0;
 */
+#define DELAY 1500 //need to adjust
 
-int firstWasCut = 0;
-int secondWasCut = 0;
+bool firstWasCut = false;
+bool firstIsCut = false;
+bool secondWasCut = false;
+bool secondIsCut = false;
 bool walkIn = false;
 bool walkOut = false;
 int counter = 0;
+unsigned long _timestamp;
+
+
+void checkIfWalkIn()
+{
+  if (firstIsCut != firstWasCut)
+  {
+    firstWasCut = firstIsCut;
+
+    if(walkIn == false && firstIsCut == true)
+    {
+      walkIn = true;
+      _timestamp = millis();
+    }
+  }
+
+  if(millis() - _timestamp > DELAY)
+  {
+    walkIn = false;
+  }
+
+  if(walkIn && secondIsCut == true && firstIsCut == false)
+  {
+    walkIn = false;
+    counter++;
+  }
+}
+
+void checkIfWalkOut()
+{
+  if (secondIsCut != secondWasCut)
+  {
+    secondWasCut = secondIsCut;
+
+    if(walkOut == false && secondIsCut == true)
+    {
+      walkOut = true;
+      _timestamp = millis();
+    }
+  }
+
+  if(millis() - _timestamp > DELAY)
+  {
+    walkOut = false;
+  }
+
+  if(walkOut && secondIsCut == false && firstIsCut == true)
+  {
+    walkIn = false;
+    counter--;
+  }
+}
+
 
 void loop() {
   int firstLaserValue = analogRead(A0);
   int secondLaserValue = analogRead(A1);
-  //Check walk in
-  if (firstLaserValue > 100) {
-    firstWasCut = 50;
-    if (secondWasCut && !(firstLaserValue > 100 && secondLaserValue > 100)) {
-      counter--;
-      firstWasCut = 0;
-      secondWasCut = 0;
-    }
-  } else {
-    if (firstWasCut > 0) {
-      firstWasCut--;
-    }
+  if(firstLaserValue > 100)
+  {
+    firstIsCut = true;
   }
-  if (secondLaserValue > 100) {
-    secondWasCut = 50;
-    if (firstWasCut && !(firstLaserValue > 100 && secondLaserValue > 100)) {
-      counter++;
-      firstWasCut = 0;
-      secondWasCut = 0;
-    }
-  } else {
-    if (secondWasCut > 0) {
-      secondWasCut--;
-    }
+    if(secondLaserValue > 100)
+  {
+    secondIsCut = true;
   }
+
+  checkIfWalkIn();
+  checkIfWalkOut();
+
 
   Serial.println("people in:");
   Serial.println(counter);
-  delay(25);
+  //delay(25);
 }
 
 /*
