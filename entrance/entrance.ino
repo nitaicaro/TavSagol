@@ -10,11 +10,6 @@
   http://www.arduino.cc/en/Tutorial/AnalogReadSerial
 */
 
-// the setup routine runs once when you press reset:
-void setup() {
-  // initialize serial communication at 9600 bits per second:
-  Serial.begin(9600);
-}
 
 /*
 int currentLaserValue = 0;
@@ -25,7 +20,6 @@ int counter = 0;
 int laserWasCut = 0;
 int distanceFlag = 0;
 */
-#define DELAY 1500 //need to adjust
 
 bool firstWasCut = false;
 bool firstIsCut = false;
@@ -34,8 +28,16 @@ bool secondIsCut = false;
 bool walkIn = false;
 bool walkOut = false;
 int counter = 0;
-unsigned long _timestamp;
 
+#define MAX 5
+
+//inputs
+#define FIRST_LASER A0
+#define SECOND_LASER A1
+
+//outputs
+#define RED 2
+#define GREEN 4
 
 void checkIfWalkIn()
 {
@@ -43,22 +45,17 @@ void checkIfWalkIn()
   {
     firstWasCut = firstIsCut;
 
-    if(walkIn == false && firstIsCut == true)
+    if(!walkIn && firstIsCut)
     {
       walkIn = true;
-      _timestamp = millis();
     }
   }
 
-  if(millis() - _timestamp > DELAY)
-  {
-    walkIn = false;
-  }
-
-  if(walkIn && secondIsCut == true && firstIsCut == false)
+  if(walkIn && secondIsCut && !firstIsCut)
   {
     walkIn = false;
     counter++;
+    Serial.println(counter);
   }
 }
 
@@ -68,97 +65,72 @@ void checkIfWalkOut()
   {
     secondWasCut = secondIsCut;
 
-    if(walkOut == false && secondIsCut == true)
+    if(!walkOut && secondIsCut)
     {
       walkOut = true;
-      _timestamp = millis();
     }
   }
 
-  if(millis() - _timestamp > DELAY)
+  
+  if(walkOut && !secondIsCut && firstIsCut)
   {
     walkOut = false;
-  }
-
-  if(walkOut && secondIsCut == false && firstIsCut == true)
-  {
-    walkIn = false;
     counter--;
+    Serial.println(counter);
+
   }
 }
 
+void setup()
+{
+  // the setup routine runs once when you press reset:
+  // initialize serial communication at 9600 bits per second:
+  Serial.begin(9600);
+  pinMode(RED,  OUTPUT);
+  pinMode(GREEN,  OUTPUT);
+}
 
 void loop() {
-  int firstLaserValue = analogRead(A0);
-  int secondLaserValue = analogRead(A1);
+  int firstLaserValue = analogRead(FIRST_LASER);
+  int secondLaserValue = analogRead(SECOND_LASER);
   if(firstLaserValue > 100)
   {
     firstIsCut = true;
   }
-    if(secondLaserValue > 100)
+  else
+  {
+    firstIsCut = false;
+  }
+  if(secondLaserValue > 100)
   {
     secondIsCut = true;
+  }
+  else
+  {
+    secondIsCut = false;
+  }
+
+  if (!firstIsCut && !secondIsCut)
+  {
+    firstWasCut = false;
+    secondWasCut = false;
+    walkIn = false;
+    walkOut = false;
   }
 
   checkIfWalkIn();
   checkIfWalkOut();
 
-
-  Serial.println("people in:");
-  Serial.println(counter);
-  //delay(25);
-}
-
-/*
-// the loop routine runs over and over again forever:
-void loop() {
-  lastLaserValue = currentLaserValue;
-  currentLaserValue = analogRead(A0);
-  int laserValue = currentLaserValue - lastLaserValue;
-  if(laserValue > 150)
+  if(counter >= MAX)
   {
-    laserWasCut = 1;
-    if (distanceFlag > 0) {
-      //Somebody entered
-      counter++;
-      distanceFlag = 0;
-      laserWasCut = 0;
-    } else {
-      laserWasCut = 1;
-    }
+    digitalWrite(RED, HIGH);
+    digitalWrite(GREEN, LOW);
   }
   else
   {
-      if(laserWasCut > 0){
-        laserWasCut -= 1;
-      }
+    digitalWrite(RED, LOW);
+    digitalWrite(GREEN, HIGH);
   }
-  int distanceValue = analogRead(A1);
-  lastDistanceValue = currentDistanceValue;
-  currentDistanceValue = distanceValue;
-  int diff = lastDistanceValue - currentDistanceValue;
-  if (laserWasCut > 0)
-  {
-    if (diff < 50) counter++;
-    else counter--;
-  }
-  if (diff < - 50 || diff > 50) 
-  {
-      if (laserWasCut > 0) {
-        //Somebody exited
-        counter--;
-        distanceFlag = 0;
-        laserWasCut = 0;
-      } else {
-        distanceFlag = 5;
-      }
-  }
-  else if (distanceFlag > 0){
-    distanceFlag = 0;
-  }
-  Serial.println("people in:");
-  Serial.println(counter);
-  
-  delay(100);        // delay in between reads for stability
+
+  delay(10);
 }
-*/
