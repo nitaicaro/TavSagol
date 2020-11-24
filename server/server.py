@@ -9,13 +9,10 @@ PORT = 8080
 # RESPONSE CODES #
 CODE_FULL = "FULL"
 CODE_NOT_FULL = "OK"
-ERROR = "ERROR"
+CODE_ERROR = "ERROR"
 
 # DB CONFIGURATIONS #
 MAX_PEOPLE = 4
-
-# GLOBAL VARS #
-counter = 0
 
 class Serv(BaseHTTPRequestHandler):
     def write_response(self, content):
@@ -32,7 +29,7 @@ class Serv(BaseHTTPRequestHandler):
 
     def updateCounter(amount):
         if (not Serv.check_int(amount)):
-            return ERROR
+            return CODE_ERROR
         db = TinyDB('data.json')
         current_counter = db.all()[0]['counter']
         new_counter = current_counter + int(amount) 
@@ -47,9 +44,6 @@ class Serv(BaseHTTPRequestHandler):
         if s[0] in ('-', '+'):
             return len(s) > 1 and s[1:].isdigit()
         return s.isdigit()
-
-
-# updateCounter(sys.argv[1])
 
 httpd = HTTPServer(("", PORT), Serv)
 httpd.serve_forever()
