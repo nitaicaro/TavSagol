@@ -17,7 +17,9 @@ db = TinyDB('server/data.json')
 
 class Serv(BaseHTTPRequestHandler):
     def do_POST(self):
+        print("POST Received")
         content_length = int(self.headers.get('content-length', 0))
+        print(content_length)
         post_data = json.loads(self.rfile.read(content_length))
         self.handlePostData(post_data)
 
