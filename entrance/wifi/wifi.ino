@@ -7,68 +7,19 @@
 
 SoftwareSerial NodeMCU(D2,D3);
 
+#define OK 1
+#define FULL 0
+#define ENTER 1
+#define EXIT 0
 
-const char *ssid =  "TP-LINK_RoEm2.4";
-const char *pass =  "Rmalal92M";
+const char *ssid =  "****"; //enter credentials
+const char *pass =  "****";
 
+//methods declarations
+void connectToWifi();
+void postHttp(int code);
+void sendResponseToArduino(String message);
 
-void postHttp(int val)
-{
-  String postMessage;
-  const int capacity = JSON_OBJECT_SIZE(1);
-  StaticJsonDocument<capacity> doc;
-  if(val == 0)
-  {
-      doc["amount"] = "-1";
-  }
-  else
-  {
-     doc["amount"] = "1";
-  }
-  HTTPClient http;
-  http.begin("http://52.15.252.42:8080/");
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("Content-Length", "");
-  Serial.println("sending");
-  serializeJsonPretty(doc, postMessage);
-  serializeJsonPretty(doc, Serial);
-  http.POST(postMessage);
-  Serial.println("sent");
-  Serial.println("waiting for response");
-  delay(2000);
-  String payload = http.getString();
-  http.end();
-  Serial.println("recieved response");
-  Serial.println("gonna print payload now");
-  Serial.println(payload);
-  int responseToUno;
-  if(payload == "OK")
-  {
-    responseToUno = 1;
-  }
-  else
-  {
-    responseToUno = 0;  
-  }
-  NodeMCU.print(responseToUno);
-  NodeMCU.println("\n");
-}
-
-void connectToWifi()
-{
-  Serial.println("esp, esp, show us the wifi");
-  Serial.println("Connecting to ");
-  Serial.println(ssid); 
- 
-  WiFi.begin(ssid, pass); 
-  while (WiFi.status() != WL_CONNECTED) 
-  {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.println("WiFi connected"); 
-}
 
 void setup()
 {
@@ -94,4 +45,73 @@ void loop()
 
   
  delay(100);
+}
+
+//implementations
+
+void postHttp(int code)
+{
+  String postMessage;
+  const int capacity = JSON_OBJECT_SIZE(1);
+  StaticJsonDocument<capacity> doc;
+  if(code == EXIT)
+  {
+      doc["amount"] = "-1";
+  }
+  else if(code == ENTER)
+  {
+     doc["amount"] = "1";
+  }
+  HTTPClient http;
+  http.begin("http://52.15.252.42:8080/");
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Content-Length", "");
+  Serial.println("sending");
+  serializeJsonPretty(doc, postMessage);
+  serializeJsonPretty(doc, Serial);
+  http.POST(postMessage);
+  Serial.println("sent");
+  Serial.println("waiting for response");
+  delay(2000);
+  String payload = http.getString();
+  http.end();
+  Serial.println("recieved response");
+  Serial.println("gonna print payload now");
+  Serial.println(payload);
+  sendResponseToArduino(payload);
+}
+
+void connectToWifi()
+{
+  Serial.println("Connecting to ");
+  Serial.println(ssid); 
+ 
+  WiFi.begin(ssid, pass); 
+  while (WiFi.status() != WL_CONNECTED) 
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected"); 
+}
+
+void sendResponseToArduino(String message)
+{
+  int responseToUno;
+  if(message == "OK")
+  {
+    responseToUno = OK;
+  }
+  else if(message == "FULL")
+  {
+    responseToUno = FULL;  
+  }
+  else
+  {
+    Serial.println("undefined message");
+  }
+  
+  NodeMCU.print(responseToUno);
+  NodeMCU.println("\n");
 }

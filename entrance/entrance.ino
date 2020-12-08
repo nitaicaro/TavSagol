@@ -3,16 +3,16 @@
 //communication globals
 SoftwareSerial ArduinoUno(3,2);
 
-//counting globals
-bool firstWasCut = false;
-bool firstIsCut = false;
-bool secondWasCut = false;
-bool secondIsCut = false;
-bool walkIn = false;
-bool walkOut = false;
-int counter = 0;
+
+//methods declarations
+//counting
+void checkIfWalkIn();
+void checkIfWalkOut();
 void countPeople();
-#define MAX 5
+//communication
+void checkAndHandleResponseFromEsp();
+void notifyEsp(int code);
+
 
 //inputs
 #define FIRST_LASER A0
@@ -22,6 +22,47 @@ void countPeople();
 #define RED 4
 #define GREEN 5
 
+//counting globals
+bool firstWasCut = false;
+bool firstIsCut = false;
+bool secondWasCut = false;
+bool secondIsCut = false;
+bool walkIn = false;
+bool walkOut = false;
+int counter = 0;
+
+#define LIGHT_THRESHOLD 100
+
+//communication constants - replace with enum? check if it is available for arduino. move to shared .h? need to see if it is possible
+#define OK 1
+#define FULL 0
+#define ENTER 1
+#define EXIT 0
+
+
+void setup()
+{
+  // the setup routine runs once when you press reset:
+  // initialize serial communication at 9600 bits per second:
+  Serial.begin(9600);
+  //set pins for RGB LED
+  pinMode(RED,  OUTPUT);
+  pinMode(GREEN,  OUTPUT);
+  //Init the serial communications with the ESP8266
+  ArduinoUno.begin(4800);
+  //Serial.println("Good Morning from Arduino Uno");
+}
+
+void loop() 
+{
+  checkAndHandleResponseFromEsp();
+  countPeople(); 
+  delay(10);
+}
+
+
+//implementations
+//counting
 void checkIfWalkIn()
 {
   if (firstIsCut != firstWasCut)
@@ -38,9 +79,8 @@ void checkIfWalkIn()
   {
     walkIn = false;
     counter++;
-    ArduinoUno.print(1);
-    ArduinoUno.println("\n");
-    Serial.println(counter);
+    notifyEsp(ENTER);
+    //Serial.println(counter);
   }
 }
 
@@ -61,55 +101,16 @@ void checkIfWalkOut()
   {
     walkOut = false;
     counter--;
-    ArduinoUno.print(0);
-    ArduinoUno.println("\n");
-    Serial.println(counter);
+    notifyEsp(EXIT);
+    //Serial.println(counter);
   }
-}
-
-
-void setup()
-{
-  // the setup routine runs once when you press reset:
-  // initialize serial communication at 9600 bits per second:
-  Serial.begin(9600);
-  pinMode(RED,  OUTPUT);
-  pinMode(GREEN,  OUTPUT);
-  ArduinoUno.begin(4800);
-  Serial.println("Good Morning from Arduino Uno");
-}
-
-void loop() 
-{
-  while(ArduinoUno.available() > 0)
-  {
-    int val = ArduinoUno.parseInt();
-    if(ArduinoUno.read()== '\n')
-    {
-      Serial.println(val);
-      if(val == 1)
-      {
-        digitalWrite(RED, LOW);
-        digitalWrite(GREEN, HIGH);
-      }
-      else
-      {
-        digitalWrite(RED, HIGH);
-        digitalWrite(GREEN, LOW);
-      }
-   }
-  }
-
-  countPeople(); 
-  delay(10);
-
 }
 
 void countPeople()
 {
   int firstLaserValue = analogRead(FIRST_LASER);
   int secondLaserValue = analogRead(SECOND_LASER);
-  if(firstLaserValue > 100)
+  if(firstLaserValue > LIGHT_THRESHOLD)
   {
     firstIsCut = true;
   }
@@ -117,7 +118,7 @@ void countPeople()
   {
     firstIsCut = false;
   }
-  if(secondLaserValue > 100)
+  if(secondLaserValue > LIGHT_THRESHOLD)
   {
     secondIsCut = true;
   }
@@ -137,4 +138,39 @@ void countPeople()
   checkIfWalkIn();
   checkIfWalkOut();
 
+}
+
+//communications
+void checkAndHandleResponseFromEsp()
+{
+  while(ArduinoUno.available() > 0)
+  {
+    int val = ArduinoUno.parseInt();
+    if(ArduinoUno.read()== '\n')
+    {
+      Serial.println(val);
+      if(val == OK)
+      {
+        digitalWrite(RED, LOW);
+        digitalWrite(GREEN, HIGH);
+      }
+      else if(val == FULL)
+      {
+        digitalWrite(RED, HIGH);
+        digitalWrite(GREEN, LOW);
+      }
+      else //should now reach here
+      {
+        Serial.println("undefined message");
+      }
+   }
+  }
+}
+
+//notifies the esp if someone enters/exists
+//param code = 0 is for exit, 1 is for enter
+void notifyEsp(int code)
+{
+    ArduinoUno.print(code);
+    ArduinoUno.println("\n");
 }
