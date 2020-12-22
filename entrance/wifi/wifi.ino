@@ -7,22 +7,22 @@ SoftwareSerial NodeMCU(D2,D3);
 
 #define ENTRANCE_MESSAGE 2
 #define TEMP_MESSAGE 3
+#define INVALID_ENTRANCE 4
 #define OK 1
 #define FULL 0
 #define ENTER 1
 #define EXIT 0
 
-#define AWS_SERVER_IP "http://18.221.133.197:8080/"
+#define AWS_SERVER_IP "http://3.16.206.122:8080/"
 
-const char *ssid =  "TP-LINK_RoEm2.4"; //enter credentials
-const char *pass =  "Rmalal92M";
+const char *ssid =  "Redmi"; //enter credentials
+const char *pass =  "799488790918";
 
 //methods declarations
 void checkFromUno();
 void connectToWifi();
 void postHttp(int code);
 void sendResponseToArduino(String message);
-void loginServer();
 void readAndPostTemperature();
 void readAndPostEntrance();
 void checkForMsgFromAws();
@@ -42,24 +42,13 @@ void loop()
 {
   checkForMsgFromAws();
   checkFromUno();
-   delay(100);
-  checkFromUno();
-   delay(100);
-
-  checkFromUno();
-   delay(100);
-
-  checkFromUno();
-   delay(100);
-
-  checkFromUno();
- delay(100);
+  delay(10);
 }
 
 //implementations
 void checkFromUno()
 {
-    if (NodeMCU.available() > 0)
+  while (NodeMCU.available() > 0)
   {
     int code = NodeMCU.parseInt();
     if (NodeMCU.read() == '=')
@@ -71,6 +60,12 @@ void checkFromUno()
       else if (code == ENTRANCE_MESSAGE)
       {
         readAndPostEntrance();
+      }
+      else if (code == INVALID_ENTRANCE)
+      {
+         StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc;
+         doc["invalid_entrance"] = "true";
+         postHttp(doc); 
       }
       else
       {
@@ -90,12 +85,15 @@ void postHttp(StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc)
   Serial.println("sending");
   serializeJsonPretty(doc, postMessage);
   serializeJsonPretty(doc, Serial);
-  http.POST(postMessage);
+  int returnCode = http.POST(postMessage);
   Serial.println("sent");
   Serial.println("waiting for response");
-  String payload = "";
-  delay(200);
-  payload = http.getString();
+  if(returnCode < 0)
+  {
+    Serial.println("Http POST Failed");
+    return;
+  }
+  String payload = http.getString();
   http.end();
   Serial.println("recieved response");
   Serial.println("gonna print payload now");
@@ -161,29 +159,14 @@ String ipToString(IPAddress ip){
   return s;
 }
 
-void loginServer()
-{
-  StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc;
-  /*IPAddress ip = WiFi.gatewayIP();
-  String s="";
-  for (int i=0; i<4; i++)
-    s += i  ? "." + String(ip[i]) : String(ip[i]);
-  char buffer[16];
-  sprintf(buffer, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
-  Serial.print("Here is my ip : ");
-  Serial.println(ip);
-  Serial.print("Here is my buff : ");
-  Serial.println(buffer);*/
-  doc["ip"] = "Hi";
-  postHttp(doc);  
-}
-
 void readAndPostTemperature()
 {
   String temperature;
   while (NodeMCU.available() > 0)
   {
-    temperature =  String(NodeMCU.parseFloat());
+    float temp_temp = NodeMCU.parseFloat();
+    Serial.println(temp_temp);
+    temperature =  String(temp_temp);
     if (NodeMCU.read() == '\n') break;
   }
   
