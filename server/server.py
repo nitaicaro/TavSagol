@@ -1,6 +1,7 @@
 import sys
 import json
 import requests
+import ssl
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from tinydb import TinyDB
 
@@ -11,41 +12,41 @@ PORT = 8080
 CODE_FULL = "FULL"
 CODE_NOT_FULL = "OK"
 CODE_ERROR = "ERROR"
-IP_RECEIVED = "IP RECEIVED"
+# IP_RECEIVED = "IP RECEIVED"
 MAX_UPDATED = "MAX UPDATED"
 
 # DB CONFIGURATIONS #
 DEFAULT_MAX_PEOPLE = 4
 db = TinyDB('server/data.json')
 
-subscribers = set()
-
 class Serv(BaseHTTPRequestHandler):
+
+    def do_GET(self):
+        print("GET Received from " + self.client_address[0])
+        response = str(getField('counter')) + "," + str(getField('max'))
+        self.writeResponse(response)
+
     def do_POST(self):
-        print("POST Received from ")
-        print('----------')
         content_length = int(self.headers.get('content-length', 0))
         post_data = json.loads(self.rfile.read(content_length))
         response = self.handlePostData(post_data)
+        print("RESPONDING TO POST WITH " + response)
         self.writeResponse(response)
-        if response is CODE_FULL or response is CODE_NOT_FULL:
-            broadcastAllUnits(response)
-        print("Current subscribers:")
-        print(subscribers)
         print('-----------------------------------')
 
     def writeResponse(self, content):
         self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(content.encode())
     
     def handlePostData(self, post_data):
+        print("POST Received from " + self.client_address[0] + " with data ")
+        print(post_data)
+        print('----------')
         if 'amount' in post_data:
             amount = post_data['amount']
             return updateCounter(amount)
-        elif 'ip' in post_data:
-            subscribers.add(self.client_address[0])
-            return IP_RECEIVED
         elif 'max' in post_data:
             updateMax(post_data['max'])
             print("MAX WAS CHANGED TO " + str(post_data['max']))
@@ -82,14 +83,9 @@ def checkInt(s):
     if s[0] in ('-', '+'):
         return len(s) > 1 and s[1:].isdigit()
     return s.isdigit()
-    
-def broadcastAllUnits(response):
-    for subscriber in subscribers:
-        url = 'http://' + subscriber + ':80/'
-        x = requests.post(url = 'http://18.221.133.197:8080', data = {"response": response})
-    print('----------')
 
 print("SERVER ON....")
 print('----------')
 httpd = HTTPServer(("", PORT), Serv)
+httpd.socket = ssl.wrap_socket(httpd.socket, certfile='./certificate.pem', keyfile='./privkey.pem', server_side=True)
 httpd.serve_forever()
