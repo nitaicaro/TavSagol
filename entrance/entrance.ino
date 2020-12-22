@@ -241,7 +241,11 @@ void countPeople()
 void notifyEsp(int messageType, int value)
 {
     ArduinoUno.print(messageType);
-    if(value < 0) return;
+    if(value < 0)
+    {
+      ArduinoUno.println('=');
+      return;
+    }
     ArduinoUno.print('=');
     ArduinoUno.print(value);
     ArduinoUno.println("\n");

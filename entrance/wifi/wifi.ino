@@ -15,8 +15,8 @@ SoftwareSerial NodeMCU(D2,D3);
 
 #define AWS_SERVER_IP "http://3.16.206.122:8080/"
 
-const char *ssid =  "Redmi"; //enter credentials
-const char *pass =  "799488790918";
+const char *ssid =  ""; //enter credentials
+const char *pass =  "";
 
 //methods declarations
 void checkFromUno();
