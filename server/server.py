@@ -1,6 +1,7 @@
 import sys
 import json
 import requests
+import datetime
 import ssl
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from tinydb import TinyDB
@@ -14,10 +15,14 @@ CODE_NOT_FULL = "OK"
 CODE_ERROR = "ERROR"
 # IP_RECEIVED = "IP RECEIVED"
 MAX_UPDATED = "MAX UPDATED"
+INVALID_ENTRANCE_RECEIVED = "INVALID_ENTRANCE_RECEIVED" 
+HIGH_TEMP_RECEIVED = "HIGH_TEMP_RECEIVED"
 
 # DB CONFIGURATIONS #
 DEFAULT_MAX_PEOPLE = 4
 db = TinyDB('server/data.json')
+history = TinyDB('server/history.json')
+
 
 class Serv(BaseHTTPRequestHandler):
 
@@ -30,6 +35,8 @@ class Serv(BaseHTTPRequestHandler):
         content_length = int(self.headers.get('content-length', 0))
         post_data = json.loads(self.rfile.read(content_length))
         response = self.handlePostData(post_data)
+        print("POST Received from " + self.client_address[0] + " with data ")
+        print(post_data)
         print("RESPONDING TO POST WITH " + response)
         self.writeResponse(response)
         print('-----------------------------------')
@@ -41,9 +48,6 @@ class Serv(BaseHTTPRequestHandler):
         self.wfile.write(content.encode())
     
     def handlePostData(self, post_data):
-        print("POST Received from " + self.client_address[0] + " with data ")
-        print(post_data)
-        print('----------')
         if 'amount' in post_data:
             amount = post_data['amount']
             return updateCounter(amount)
@@ -51,10 +55,23 @@ class Serv(BaseHTTPRequestHandler):
             updateMax(post_data['max'])
             print("MAX WAS CHANGED TO " + str(post_data['max']))
             return MAX_UPDATED
+        elif 'invalid_temperature' in post_data:
+            print("POST DATA IS")
+            print(post_data)
+            logHighTemp(post_data['invalid_temperature'])
+            return HIGH_TEMP_RECEIVED
+        elif 'history' in post_data:
+            return json.dumps(history.all())
+        elif 'invalid_entrance' in post_data:
+            logHighTemp("ENTRANCE WITHOUT TEMPERATURE MEASUREMENT")
+            return INVALID_ENTRANCE_RECEIVED
         else:
             print('post data is ' + post_data)
             print('----------')
         
+def logHighTemp(temp):
+    history.insert({str(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")): temp})
+
 def getField(field):
     try:
         return db.all()[0][field]
@@ -87,5 +104,4 @@ def checkInt(s):
 print("SERVER ON....")
 print('----------')
 httpd = HTTPServer(("", PORT), Serv)
-httpd.socket = ssl.wrap_socket(httpd.socket, certfile='./certificate.pem', keyfile='./privkey.pem', server_side=True)
 httpd.serve_forever()
