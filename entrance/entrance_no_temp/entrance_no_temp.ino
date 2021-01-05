@@ -15,30 +15,18 @@ int counter = 0;
 bool isFull = false;
 bool tempIsOk = false;
 int tempDelay = 0;
-#define LIGHT_THRESHOLD 250
-
-//temperature
-Adafruit_MLX90614 temperature_sensor = Adafruit_MLX90614();
-#define IS_HUMAN_TEMP(value) (((value) < 45) && ((value) > 33))
-#define IS_VALID_TEMP(value) (((value) < 38) && ((value) > 33))
-#define TEMP_SENSOR_CORRECT_FACTOR 4
-#define TEMP_MEASURE_ITERATIONS 10
+#define LIGHT_THRESHOLD 110
 
 //display
 LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 int lcdCurrentMessage = -1;
-#define MSG_MES_TEMP 0
 #define MSG_FULL 1
 #define MSG_ENTER 2
-#define MSG_INVALID_TEMP 3
 
 //communication globals
 SoftwareSerial ArduinoUno(3,2);
-int last_bad_temp = 0;
 #define INVALID_ENTRANCE 4
-#define TEMP_MESSAGE 3
 #define ENTRANCE_MESSAGE 2
-#define INVALID_TEMP_MESSAGE 5
 #define OK 1
 #define FULL 0
 #define ENTER 1
@@ -63,9 +51,6 @@ void countPeople();
 //communication
 void checkAndHandleResponseFromEsp();
 void notifyEsp(int code);
-//temp
-void readAndSendTemp();
-float measureTemp();
 //display
 void updateDisplay(int messageCode);
 
@@ -81,19 +66,16 @@ void setup()
   pinMode(BUZZER, OUTPUT);
   //Init the serial communications with the ESP8266
   ArduinoUno.begin(4800);
-  //temperature init
-  temperature_sensor.begin();
   // initialize the lcd 
   lcd.init();                      
   lcd.backlight();
   lcd.clear();
-  updateDisplay(MSG_MES_TEMP);
+  updateDisplay(MSG_ENTER);
 }
 
 void loop() 
 {
   checkAndHandleResponseFromEsp();
-  readAndSendTemp();
   countPeople();
   delay(10);
 }
@@ -112,7 +94,7 @@ void checkAndHandleResponseFromEsp()
         digitalWrite(RED, LOW);
         digitalWrite(GREEN, LOW);
         isFull = false;
-        updateDisplay(MSG_MES_TEMP);
+        updateDisplay(MSG_ENTER);
       }
       else if(val == FULL)
       {
@@ -133,24 +115,6 @@ void checkAndHandleResponseFromEsp()
 
 void handleWalkIn()
 {
-  if (!tempIsOk)
-  {
-    // Someone entered when their temperature is high / didn't check temperature
-    tone(BUZZER, 440, 2000);
-    if(last_bad_temp > 0)
-    {
-      notifyEsp(INVALID_TEMP_MESSAGE, last_bad_temp);
-    }
-    else
-    {
-      notifyEsp(INVALID_ENTRANCE, -1);
-    }
-    // TODO: Maybe let the esp know that someone with high heat went inside
-  }
-  else
-  {
-    tempIsOk = false;
-  }
   walkIn = false;
   tempDelay = 0;
   counter++;
@@ -161,7 +125,7 @@ void handleWalkIn()
   }
   else
   {
-    updateDisplay(MSG_MES_TEMP);
+    updateDisplay(MSG_ENTER);
   }
   notifyEsp(ENTRANCE_MESSAGE, ENTER);
   Serial.println(counter);
@@ -215,6 +179,7 @@ void countPeople()
   //Serial.println(firstLaserValue);
   int secondLaserValue = analogRead(SECOND_LASER);
   //Serial.println(secondLaserValue);
+
   if(firstLaserValue > LIGHT_THRESHOLD)
   {
     firstIsCut = true;
@@ -228,7 +193,7 @@ void countPeople()
     secondIsCut = true;
   }
   else
-  { 
+  {
     secondIsCut = false;
   }
 
@@ -262,65 +227,6 @@ void notifyEsp(int messageType, int value)
     ArduinoUno.println("\n");
 }
 
-//temp
-
-float measureTemp()
-{
-  float sum = 0;
-  for(int i = 0; i < TEMP_MEASURE_ITERATIONS; ++i)
-  {
-    sum += temperature_sensor.readObjectTempC();
-    delay(10);
-  }
-  return sum/TEMP_MEASURE_ITERATIONS + TEMP_SENSOR_CORRECT_FACTOR;
-}
-
-void readAndSendTemp()
-{
-  if(isFull) return;
-  if(tempDelay > 0)
-  {
-    //decrease timeout
-    tempDelay -= 1;
-    return;
-  }
-  else
-  {
-      //timeout, reset
-      updateDisplay(MSG_MES_TEMP);
-      digitalWrite(RED, LOW);
-      digitalWrite(GREEN, LOW);
-      tempIsOk = false;
-      last_bad_temp = 0;
-  }
-  float temperature = temperature_sensor.readObjectTempC();
-  if(IS_HUMAN_TEMP(temperature))
-  {
-    temperature = measureTemp();
-    Serial.println(temperature);
-    if(!(IS_VALID_TEMP(temperature)))
-    {
-       //notifyEsp(TEMP_MESSAGE, temperature);
-       last_bad_temp = temperature;
-       tempIsOk = false;
-       tempDelay = 600;
-       tone(BUZZER, 30, 200);
-       updateDisplay(MSG_INVALID_TEMP);
-       digitalWrite(RED, HIGH);
-       digitalWrite(GREEN, LOW);
-    }
-    else
-    {
-       tempIsOk = true;
-       tempDelay = 600;
-       updateDisplay(MSG_ENTER); 
-       digitalWrite(RED, LOW);
-       digitalWrite(GREEN, HIGH);
-    }
-  }
-  // TODO: Need to do update tempIsOk only if the temperature is ok
-}
-
 void updateDisplay(int messageCode)
 {
   if(messageCode == lcdCurrentMessage) return;
@@ -328,12 +234,6 @@ void updateDisplay(int messageCode)
   lcdCurrentMessage = messageCode;
   switch(messageCode)
   {
-    case MSG_MES_TEMP:
-        lcd.setCursor(0,0);
-        lcd.print("Please measure");
-        lcd.setCursor(0,1);
-        lcd.print("your temperature");
-        break;
     case MSG_FULL:
         lcd.setCursor(0,0);
         lcd.print("Room is full");
@@ -342,15 +242,9 @@ void updateDisplay(int messageCode)
         break;
     case MSG_ENTER:
         lcd.setCursor(0,0);
-        lcd.print("Temperature OK");
+        lcd.print("");
         lcd.setCursor(0,1);
         lcd.print("Please enter.");
-        break;
-     case MSG_INVALID_TEMP:
-        lcd.setCursor(0,0);
-        lcd.print("Temperature High");
-        lcd.setCursor(0,1);
-        lcd.print("Don't enter.");
         break;
      default:
         return;

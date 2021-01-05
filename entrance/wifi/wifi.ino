@@ -8,27 +8,30 @@ SoftwareSerial NodeMCU(D2,D3);
 #define ENTRANCE_MESSAGE 2
 #define TEMP_MESSAGE 3
 #define INVALID_ENTRANCE 4
+#define INVALID_TEMPERATUE 5
 #define OK 1
 #define FULL 0
 #define ENTER 1
 #define EXIT 0
 
-#define AWS_SERVER_IP "http://3.16.206.122:8080/"
+#define AWS_SERVER_IP "http://3.138.103.244:8080/"
 
-const char *ssid =  ""; //enter credentials
-const char *pass =  "";
+const char *ssid =  "TP-LINK_RoEm2.4"; //enter credentials
+const char *pass =  "Rmalal92M";
 
 //methods declarations
 void checkFromUno();
 void connectToWifi();
 void postHttp(int code);
 void sendResponseToArduino(String message);
-void readAndPostTemperature();
+void readAndPostTemperature(bool invalid);
 void readAndPostEntrance();
 void checkForMsgFromAws();
 
 int isOK = 1;
 
+bool waitingForReply = false;
+HTTPClient* lastHttp;
 
 void setup()
 {
@@ -40,7 +43,14 @@ void setup()
 
 void loop()
 {
-  checkForMsgFromAws();
+  if (waitingForReply) 
+  {
+    checkForReply();
+  }
+  else 
+  {
+    checkForMsgFromAws();
+  }
   checkFromUno();
   delay(10);
 }
@@ -55,7 +65,7 @@ void checkFromUno()
     {
       if (code == TEMP_MESSAGE)
       {
-        readAndPostTemperature();
+        readAndPostTemperature(false);
       }
       else if (code == ENTRANCE_MESSAGE)
       {
@@ -65,7 +75,11 @@ void checkFromUno()
       {
          StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc;
          doc["invalid_entrance"] = "true";
-         postHttp(doc); 
+         postHttp(doc, false); 
+      }
+      else if(code == INVALID_TEMPERATUE)
+      {
+         readAndPostTemperature(true);
       }
       else
       {
@@ -75,7 +89,7 @@ void checkFromUno()
     }
   }
 }
-void postHttp(StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc)
+void postHttp(StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc, bool wait)
 {
   String postMessage;
   HTTPClient http;
@@ -85,20 +99,39 @@ void postHttp(StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc)
   Serial.println("sending");
   serializeJsonPretty(doc, postMessage);
   serializeJsonPretty(doc, Serial);
-  int returnCode = http.POST(postMessage);
-  Serial.println("sent");
-  Serial.println("waiting for response");
-  if(returnCode < 0)
+  if(!wait)
   {
-    Serial.println("Http POST Failed");
+    http.POST(postMessage);
     return;
   }
-  String payload = http.getString();
+  http.POST(postMessage);
+  Serial.println("sent");
+  Serial.println("waiting for response");
+  String payload = "";
+  payload = http.getString();
+  Serial.print("THE PAYLOAD IS: ");
+  Serial.println(payload);
+  if(payload == "")
+  {
+    waitingForReply = true;
+    Serial.println("I'm a big faggot!");
+    lastHttp = &http;
+    return;
+  }
   http.end();
   Serial.println("recieved response");
   Serial.println("gonna print payload now");
   Serial.println(payload);
   sendResponseToArduino(payload);
+}
+
+void checkForReply()
+{
+    String payload = "";
+    payload = lastHttp->getString();
+    if (payload == "") return;
+    sendResponseToArduino(payload);
+    waitingForReply = false;
 }
 
 void connectToWifi()
@@ -159,7 +192,7 @@ String ipToString(IPAddress ip){
   return s;
 }
 
-void readAndPostTemperature()
+void readAndPostTemperature(bool invalid)
 {
   String temperature;
   while (NodeMCU.available() > 0)
@@ -171,8 +204,15 @@ void readAndPostTemperature()
   }
   
   StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc;
-  doc["temperature"] = temperature;
-  postHttp(doc);
+  if (invalid)
+  {
+    doc["invalid_temperature"] = temperature;
+  }
+  else
+  {
+    doc["temperature"] = temperature;
+  }
+  postHttp(doc, false);
 }
 
 void readAndPostEntrance()
@@ -198,12 +238,12 @@ void readAndPostEntrance()
     Serial.println("FOUND AN ILLEGAL CODE WHEN READING ENTRANCE!");
     return;
   }
-  postHttp(doc);
+  postHttp(doc, false);
 }
 
 void checkForMsgFromAws() 
 {
   StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc;
   doc["amount"] = "0";
-  postHttp(doc);
+  postHttp(doc, true);
 }
