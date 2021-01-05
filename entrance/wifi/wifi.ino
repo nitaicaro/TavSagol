@@ -30,8 +30,6 @@ void checkForMsgFromAws();
 
 int isOK = 1;
 
-bool waitingForReply = false;
-HTTPClient* lastHttp;
 
 void setup()
 {
@@ -43,14 +41,7 @@ void setup()
 
 void loop()
 {
-  if (waitingForReply) 
-  {
-    checkForReply();
-  }
-  else 
-  {
-    checkForMsgFromAws();
-  }
+  checkForMsgFromAws();
   checkFromUno();
   delay(10);
 }
@@ -107,31 +98,17 @@ void postHttp(StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc, bool wait)
   http.POST(postMessage);
   Serial.println("sent");
   Serial.println("waiting for response");
-  String payload = "";
-  payload = http.getString();
-  Serial.print("THE PAYLOAD IS: ");
-  Serial.println(payload);
-  if(payload == "")
+  if(returnCode < 0)
   {
-    waitingForReply = true;
-    Serial.println("I'm a big faggot!");
-    lastHttp = &http;
+    Serial.println("Http POST Failed");
     return;
   }
+  String payload = http.getString();
   http.end();
   Serial.println("recieved response");
   Serial.println("gonna print payload now");
   Serial.println(payload);
   sendResponseToArduino(payload);
-}
-
-void checkForReply()
-{
-    String payload = "";
-    payload = lastHttp->getString();
-    if (payload == "") return;
-    sendResponseToArduino(payload);
-    waitingForReply = false;
 }
 
 void connectToWifi()
