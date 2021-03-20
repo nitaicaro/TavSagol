@@ -15,14 +15,14 @@ int counter = 0;
 bool isFull = false;
 bool tempIsOk = false;
 int tempDelay = 0;
-#define LIGHT_THRESHOLD 250
+#define LIGHT_THRESHOLD 160
 
 //temperature
 Adafruit_MLX90614 temperature_sensor = Adafruit_MLX90614();
 #define IS_HUMAN_TEMP(value) (((value) < 45) && ((value) > 33))
 #define IS_VALID_TEMP(value) (((value) < 38) && ((value) > 33))
-#define TEMP_SENSOR_CORRECT_FACTOR 4
-#define TEMP_MEASURE_ITERATIONS 10
+#define TEMP_SENSOR_CORRECT_FACTOR 10
+#define TEMP_MEASURE_ITERATIONS 30
 
 //display
 LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
@@ -154,6 +154,7 @@ void handleWalkIn()
   walkIn = false;
   tempDelay = 0;
   counter++;
+  delay(200);
   if (isFull)
   {
     tone(BUZZER, 440, 2000);
@@ -204,6 +205,7 @@ void checkIfWalkOut()
   {
     walkOut = false;
     counter--;
+    delay(200);
     notifyEsp(ENTRANCE_MESSAGE, EXIT);
     Serial.println(counter);
   }
@@ -212,9 +214,11 @@ void checkIfWalkOut()
 void countPeople()
 {
   int firstLaserValue = analogRead(FIRST_LASER);
-  //Serial.println(firstLaserValue);
+  Serial.println(firstLaserValue);
+  delay(500);
   int secondLaserValue = analogRead(SECOND_LASER);
-  //Serial.println(secondLaserValue);
+  Serial.println(secondLaserValue);
+  delay(500);
   if(firstLaserValue > LIGHT_THRESHOLD)
   {
     firstIsCut = true;
@@ -294,6 +298,8 @@ void readAndSendTemp()
       last_bad_temp = 0;
   }
   float temperature = temperature_sensor.readObjectTempC();
+  //Serial.println(temperature);
+  temperature += TEMP_SENSOR_CORRECT_FACTOR;
   if(IS_HUMAN_TEMP(temperature))
   {
     temperature = measureTemp();

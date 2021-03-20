@@ -15,7 +15,7 @@ int counter = 0;
 bool isFull = false;
 bool tempIsOk = false;
 int tempDelay = 0;
-#define LIGHT_THRESHOLD 110
+#define LIGHT_THRESHOLD 240
 
 //display
 LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
@@ -118,6 +118,7 @@ void handleWalkIn()
   walkIn = false;
   tempDelay = 0;
   counter++;
+  delay(200);
   if (isFull)
   {
     tone(BUZZER, 440, 2000);
@@ -168,6 +169,7 @@ void checkIfWalkOut()
   {
     walkOut = false;
     counter--;
+    delay(200);
     notifyEsp(ENTRANCE_MESSAGE, EXIT);
     Serial.println(counter);
   }
@@ -177,8 +179,10 @@ void countPeople()
 {
   int firstLaserValue = analogRead(FIRST_LASER);
   //Serial.println(firstLaserValue);
+  //delay(500);
   int secondLaserValue = analogRead(SECOND_LASER);
   //Serial.println(secondLaserValue);
+  //delay(500);
 
   if(firstLaserValue > LIGHT_THRESHOLD)
   {

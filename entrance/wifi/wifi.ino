@@ -14,7 +14,7 @@ SoftwareSerial NodeMCU(D2,D3);
 #define ENTER 1
 #define EXIT 0
 
-#define AWS_SERVER_IP "http://3.138.103.244:8080/"
+#define AWS_SERVER_IP "http://18.222.9.139:8080/"
 
 const char *ssid =  "TP-LINK_RoEm2.4"; //enter credentials
 const char *pass =  "Rmalal92M";
@@ -98,11 +98,6 @@ void postHttp(StaticJsonDocument<JSON_OBJECT_SIZE(2)> doc, bool wait)
   http.POST(postMessage);
   Serial.println("sent");
   Serial.println("waiting for response");
-  if(returnCode < 0)
-  {
-    Serial.println("Http POST Failed");
-    return;
-  }
   String payload = http.getString();
   http.end();
   Serial.println("recieved response");
